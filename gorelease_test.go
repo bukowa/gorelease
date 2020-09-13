@@ -1,6 +1,7 @@
-package main
+package gorelease_test
 
 import (
+	. "github.com/bukowa/gorelease"
 	"log"
 	"reflect"
 	"runtime"
@@ -8,12 +9,12 @@ import (
 )
 
 func Test_loadConfig(t *testing.T) {
-	cfg := loadYaml("gorelease.yaml")
+	cfg := FromFile(".gorelease.yaml")
 	log.Print(cfg)
 }
 
 func Test_goToolDistList(t *testing.T) {
-	dist := goToolDistList()
+	dist := GoToolDistList()
 	if len(dist) < 1 {
 		t.Error(dist)
 	}
@@ -65,8 +66,8 @@ func Test_handler_Prepare(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !reflect.DeepEqual(r.Global.Platforms, goToolDistList()) {
-		t.Errorf("got: %s, want: %s", r.Global, goToolDistList())
+	if !reflect.DeepEqual(r.Global.Platforms, GoToolDistList()) {
+		t.Errorf("got: %s, want: %s", r.Global, GoToolDistList())
 	}
 
 	// target0
@@ -85,8 +86,8 @@ func Test_handler_Prepare(t *testing.T) {
 	if target.Name != "new" {
 		t.Error(target.Name)
 	}
-	if !reflect.DeepEqual(target.Platforms, goToolDistList()) {
-		t.Errorf("got: %s, want: %s", target.Platforms, goToolDistList())
+	if !reflect.DeepEqual(target.Platforms, GoToolDistList()) {
+		t.Errorf("got: %s, want: %s", target.Platforms, GoToolDistList())
 	}
 }
 
@@ -117,5 +118,5 @@ func Test_handler_Build(t *testing.T) {
 }
 
 func getExampleRelease() *Release {
-	return FromFile("./examples/gorelease.yaml")
+	return FromFile("./examples/.gorelease.yaml")
 }

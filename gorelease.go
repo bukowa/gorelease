@@ -1,4 +1,4 @@
-package main
+package gorelease
 
 import (
 	"bufio"
@@ -78,7 +78,7 @@ func (h *handler) Prepare(r *Release) error {
 
 	// check if release is for all platforms
 	if isAllPlatforms(r.Global.Platforms) {
-		r.Global.Platforms = goToolDistList()
+		r.Global.Platforms = GoToolDistList()
 	}
 	// shorten var name
 	glob := r.Global
@@ -107,7 +107,7 @@ func (h *handler) Prepare(r *Release) error {
 			t.Flags = glob.Flags
 		}
 		if isAllPlatforms(t.Platforms) {
-			t.Platforms = goToolDistList()
+			t.Platforms = GoToolDistList()
 		}
 		if t.Platforms == nil {
 			t.Platforms = glob.Platforms
@@ -164,7 +164,7 @@ func isReqAllPlatforms(r *Release) bool {
 	return false
 }
 
-func goToolDistList() map[string][]string {
+func GoToolDistList() map[string][]string {
 	cmd := exec.Command("go", "tool", "dist", "list")
 	output := runCmdFatal(cmd)
 	var m = make(map[string][]string)
