@@ -11,15 +11,13 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	ppath "path"
+	"path"
 	"strings"
 )
 
-type Handler interface {
-	Prepare(release *Release) error
-	Build(target *Target) error
-	//Release(target *Target) error
-}
+type BuildFunc func(*Target) error
+type PrepareFunc func(*Release) error
+type ReleaseFunc func(*Release) error
 
 type Release struct {
 	Global  Target   `yaml:"global"`
@@ -27,78 +25,71 @@ type Release struct {
 }
 
 type Target struct {
-	Workdir   string              `yaml:"workdir"`   // where go build is run
-	Version   string              `yaml:"version"`   // version of release
-	Dir       string              `yaml:"dir"`       // dir when bin is stored
-	File      string              `yaml:"file"`      // filename to compile
-	Name      string              `yaml:"name"`      // name pattern to apply to compiled file
+	FilePath string `yaml:"file"`    // filename to compile
+	NameFmt  string `yaml:"name"`    // name pattern to apply to compiled file
+	Version  string `yaml:"version"` // version of release
+	DestDir  string `yaml:"dir"`     // dir when bin is stored
+
 	Env       map[string]string   `yaml:"env"`       // env passed to go build
-	Platforms map[string][]string `yaml:"platforms"` // for what platforms build
 	Flags     []string            `yaml:"flags"`     // flags passed to go build
-	BinPath   string              `yaml:"-"`         // final path of built executable
+	Platforms map[string][]string `yaml:"platforms"` // for what platforms build
+
+	FileBuilds []FileBuild `yaml:"-"`
 }
 
-func (t *Target) Command(goos, goarch string) *exec.Cmd {
-	file := fmtName(t.Name, t.Version, goos, goarch)
-	path := ppath.Join(t.Dir, file)
+type FileBuild struct {
+	Name    string   // file name
+	BinPath string   // final path of built executable
+	Env     []string // env passed to go build
+	Args    []string // args passed to go build
+}
 
-	t.Flags = append(t.Flags, "-o", path)
-	cmd := exec.Command("go", append([]string{"build"}, t.Flags...)...)
-	appendMapEnv(cmd, t.Env)
-	setKVEnv(cmd, "GOOS", goos)
-	setKVEnv(cmd, "GOARCH", goarch)
-	cmd.Args = append(cmd.Args, t.File)
-
-	if t.Workdir != "" {
-		cmd.Dir = t.Workdir
-	}
-	t.BinPath = ppath.Join(t.Workdir, path)
+func (b *FileBuild) Command() *exec.Cmd {
+	cmd := exec.Command("go", b.Args...)
+	cmd.Env = b.Env
 	return cmd
 }
 
-// handler implements Handler
-type handler struct{}
-
-func (h *handler) Build(t *Target) error {
-	for goos, goarchs := range t.Platforms {
-		for _, arch := range goarchs {
-			cmd := t.Command(goos, arch)
-			logBuild(*t, cmd)
-			out, _, err := runCmd(cmd)
-			if err != nil {
-				return errors.Wrap(err, string(out))
-			}
-			log.Printf("successfully built %s", t.BinPath)
+// ForEach performs func f for each Target in Release
+func (r *Release) ForEach(f func(t *Target) error) error {
+	for _, target := range r.Targets {
+		if err := f(&target); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (h *handler) Prepare(r *Release) error {
+// Build is a basic BuildFunc
+var Build BuildFunc = func(target *Target) error {
+
+	return nil
+}
+
+// Prepare is a basic PrepareFunc
+var Prepare PrepareFunc = func(release *Release) error {
 
 	// check if release is for all platforms
-	if isAllPlatforms(r.Global.Platforms) {
-		r.Global.Platforms = GoToolDistList()
+	if isAllPlatforms(release.Global.Platforms) {
+		release.Global.Platforms = DistList()
 	}
 	// shorten var name
-	glob := r.Global
+	glob := release.Global
 
 	// iterate over each target
-	for i, t := range r.Targets {
-		if t.Workdir == "" {
-			t.Workdir = glob.Workdir
-		}
+	for i, t := range release.Targets {
+
 		if t.Version == "" {
 			t.Version = glob.Version
 		}
-		if t.Dir == "" {
-			t.Dir = glob.Dir
+		if t.DestDir == "" {
+			t.DestDir = glob.DestDir
 		}
-		if t.File == "" {
+		if t.FilePath == "" {
 			return ErrorEmptyFileName(t)
 		}
-		if t.Name == "" {
-			t.Name = glob.Name
+		if t.NameFmt == "" {
+			t.NameFmt = glob.NameFmt
 		}
 		if t.Env == nil {
 			t.Env = glob.Env
@@ -107,24 +98,53 @@ func (h *handler) Prepare(r *Release) error {
 			t.Flags = glob.Flags
 		}
 		if isAllPlatforms(t.Platforms) {
-			t.Platforms = GoToolDistList()
+			t.Platforms = DistList()
 		}
 		if t.Platforms == nil {
 			t.Platforms = glob.Platforms
 		}
-		r.Targets[i] = t
+
+		for goos, goarchs := range t.Platforms {
+			for _, goarch := range goarchs {
+				t.FileBuilds = append(t.FileBuilds, MakeFileBuild(t, goos, goarch))
+			}
+		}
+		release.Targets[i] = t
 	}
 	return nil
 }
 
-func (h *handler) Release(target Target) error {
-	panic("implement me")
+// MakeFileBuild creates FileBuild for Target
+func MakeFileBuild(t Target, goos, goarch string) FileBuild {
+	name := fmtName(t.NameFmt, t.Version, goos, goarch)
+	bin := path.Join(t.DestDir, name)
+	flags := append(t.Flags, "-o", bin)
+	env := buildEnv(t, goos, goarch)
+	args := append(append([]string{"build"}, flags...), t.FilePath)
+	b := FileBuild{
+		Name:    name,
+		BinPath: bin,
+		Env:     env,
+		Args:    args,
+	}
+	return b
 }
 
-func NewHandler() Handler {
-	return &handler{}
+// DistList is a function that will gather all dists
+// by calling `go tool dist list`
+func DistList() map[string][]string {
+	cmd := exec.Command("go", "tool", "dist", "list")
+	output := runCmdFatal(cmd)
+	var m = make(map[string][]string)
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		s := strings.Split(scanner.Text(), "/")
+		m[s[0]] = append(m[s[0]], s[1])
+	}
+	return m
 }
 
+// FromFile creates Release from given path
 func FromFile(path string) *Release {
 	return loadYaml(path)
 }
@@ -143,37 +163,6 @@ func loadYaml(path string) (cfg *Release) {
 		log.Fatal(errors.Wrap(err, path))
 	}
 	return
-}
-
-func isAllPlatforms(p map[string][]string) bool {
-	if _, ok := p["all"]; ok {
-		return true
-	}
-	return false
-}
-
-func isReqAllPlatforms(r *Release) bool {
-	if isAllPlatforms(r.Global.Platforms) {
-		return true
-	}
-	for _, t := range r.Targets {
-		if isAllPlatforms(t.Platforms) {
-			return true
-		}
-	}
-	return false
-}
-
-func GoToolDistList() map[string][]string {
-	cmd := exec.Command("go", "tool", "dist", "list")
-	output := runCmdFatal(cmd)
-	var m = make(map[string][]string)
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		s := strings.Split(scanner.Text(), "/")
-		m[s[0]] = append(m[s[0]], s[1])
-	}
-	return m
 }
 
 func runCmd(cmd *exec.Cmd) (output []byte, code int, err error) {
@@ -196,8 +185,22 @@ func runCmdFatal(cmd *exec.Cmd) []byte {
 	return output
 }
 
+func cmdWd(cmd *exec.Cmd) string {
+	if cmd.Dir != "" {
+		return cmd.Dir
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return wd
+}
+
 func cmdErr(cmd *exec.Cmd, output []byte, code int, err error) error {
-	return errors.Wrapf(err, "%s - error while executing command: '%s' - in directory: '%s' - exit code: %v - error: %s", output, cmd.String(), cmdWd(cmd), code, err)
+	return errors.Wrapf(err,
+		"%s - error while executing command: '%s'"+
+			" - in directory: '%s' - exit code: '%v' - error: '%s'",
+		output, cmd.String(), cmdWd(cmd), code, err)
 }
 
 func stdouts(cmd *exec.Cmd) (stdout, stderr *bytes.Buffer) {
@@ -216,39 +219,38 @@ func read(r io.Reader) []byte {
 	return b
 }
 
-func cmdWd(cmd *exec.Cmd) string {
-	if cmd.Dir != "" {
-		return cmd.Dir
+func isAllPlatforms(p map[string][]string) bool {
+	if _, ok := p["all"]; ok {
+		return true
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	return wd
+	return false
 }
 
-func convertEnv(m map[string]string) (env []string) {
+func envMapToSlice(m map[string]string) (env []string) {
 	for k, v := range m {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 	return env
 }
 
-func appendMapEnv(cmd *exec.Cmd, m map[string]string) {
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, convertEnv(m)...)
+func appendEnvMap(env []string, m map[string]string) []string {
+	return append(env, envMapToSlice(m)...)
 }
 
-func setKVEnv(cmd *exec.Cmd, k, v string) {
-	cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+func buildEnv(t Target, goos, goarch string) []string {
+	env := os.Environ()
+	env = appendEnvMap(env, t.Env)
+	env = appendEnvKeyValue(env, "GOOS", goos)
+	env = appendEnvKeyValue(env, "GOARCH", goarch)
+	return env
+}
+
+func appendEnvKeyValue(env []string, k, v string) []string {
+	return append(env, fmt.Sprintf("%s=%s", k, v))
 }
 
 func fmtName(name, version, goos, goarch string) string {
 	return fmt.Sprintf(name, version, goos, goarch)
-}
-
-func logCmd(cmd *exec.Cmd) {
-	log.Print(logCmdString(cmd))
 }
 
 func logCmdString(cmd *exec.Cmd) string {

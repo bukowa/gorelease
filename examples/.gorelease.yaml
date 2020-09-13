@@ -15,10 +15,14 @@ targets:
   - file: main.go
     name: "main%s-%s-%s"
     platforms:
-      windows: ["amd64"]
+      windows: ["amd64", "386"]
       linux: ["amd64"]
       darwin: ["amd64"]
 
+  - file: main.go
+    name: "main2%s-%s-%s"
+    platforms:
+      linux: ["amd64"]
   # build for all platforms
 #  - file: main.go
 #    platforms:
