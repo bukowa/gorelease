@@ -1,2 +1,2 @@
 # gorelease
- build and release go applications
+build and release single-binary go applications

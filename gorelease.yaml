@@ -1,0 +1,21 @@
+global:
+  dir: ./bin
+  name: "gorelease-%s-%s"
+  env:
+    CGO_ENABLED: 0
+    GO111MODULE: on
+  flags: []
+  platforms:
+    all:
+
+targets:
+  - file: main.go
+    name: "gorelease-%s-%s"
+    env:
+      CGO_ENABLED: 0
+      GO111MODULE: on
+    platforms:
+      windows: ["386", "amd64", "arm"]
+    flags: []
+
+  - file: empty.go

@@ -1,0 +1,25 @@
+global:
+  # because we call it from go_release.test
+  workdir: examples
+  # first '%s' in name
+  version: v0.1.0
+  flags:
+    - -ldflags="-X 'main.Version=v0.1.0'"
+  # store releases here
+  dir: bin
+  name: "gorelease%s-%s-%s"
+  env:
+    CGO_ENABLED: 0
+
+targets:
+  - file: main.go
+    name: "main%s-%s-%s"
+    platforms:
+      windows: ["amd64"]
+      linux: ["amd64"]
+      darwin: ["amd64"]
+
+  # build for all platforms
+#  - file: main.go
+#    platforms:
+#      all:
