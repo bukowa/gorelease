@@ -4,17 +4,12 @@ global:
   name: "gorelease%s-%s-%s"
   env:
     CGO_ENABLED: 0
+    GO111MODULE: on
   flags:
     - -ldflags="-X 'main.Version=v0.1.0'"
 
 targets:
+
   - file: main.go
-    dir: bin2
-    env:
-      CGO_ENABLED: 0
-      GO111MODULE: on
     platforms:
       windows: ["386", "amd64", "arm"]
-    flags: []
-
-  - file: empty.go
