@@ -4,15 +4,18 @@ import (
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/storage"
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
-// filename: url
+// local path: url
 type GCSResult map[string]string
 
 // GCSRelease is Google Cloud Storage ReleaseFunc
@@ -40,7 +43,7 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 
 			// handles error
 			var handle = func(err error) {
-				log.Fatal(errors.Wrapf(err, "while releasing %s", build))
+				log.Fatal(errors.Wrapf(err, "while releasing %s", build.BinPath))
 			}
 
 			// handle writer close
@@ -75,6 +78,7 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 			// todo check if exists
 			// write file to object
 			w := obj.NewWriter(ctx)
+			log.Printf("writing to gcs object %s", build.BinPath)
 			if _, err = w.Write(b); err != nil {
 				handle(err)
 			}
@@ -82,12 +86,19 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 			// close writer
 			closeErr = w.Close()
 
-			attrs, err := obj.Attrs(ctx)
+			_, err = obj.Attrs(ctx)
 			if err != nil {
 				handle(err)
 			}
-			result[build.Name] = attrs.MediaLink
+			result[build.BinPath] = makeObjectURL(bucket, *build)
 			return nil
 		})
 	}
+}
+
+// convertMediaLink converts object MediaLink to clean url
+func makeObjectURL(bucket string, f FileBuild) string {
+	p := filepath.ToSlash(f.BinPath)
+	p = strings.TrimPrefix(p, "/")
+	return fmt.Sprintf("https://storage.googleapis.com/%s/%s", bucket, p)
 }

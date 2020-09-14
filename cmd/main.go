@@ -63,7 +63,7 @@ var releaseGCS = &cobra.Command{
 			log.Fatal(err)
 		}
 		for k, v := range result {
-			log.Print(k, "", v)
+			log.Print(k, " ", v)
 		}
 	},
 }

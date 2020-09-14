@@ -29,8 +29,8 @@ type Release struct {
 }
 
 type Target struct {
-	FilePath string `yaml:"file"`    // filename to compile
-	NameFmt  string `yaml:"name"`    // name pattern to apply to compiled file
+	FilePath string `yaml:"file"`    // file to compile
+	Name     string `yaml:"name"`    // name of executable
 	Version  string `yaml:"version"` // version of release
 	DestDir  string `yaml:"dir"`     // dir when bin is stored
 
@@ -76,6 +76,21 @@ func (r *Release) ForEachTargetBuild(f func(t *Target, f *FileBuild) error) erro
 	return nil
 }
 
+// MakeFileBuild creates FileBuild for Target
+func MakeFileBuild(t Target, goos, goarch string) FileBuild {
+	bin := path.Join(t.DestDir, t.Version, goos+"_"+goarch, t.Name)
+	flags := append(t.Flags, "-o", bin)
+	env := buildEnv(t, goos, goarch)
+	args := append(append([]string{"build"}, flags...), t.FilePath)
+	b := FileBuild{
+		Name:    t.Name,
+		BinPath: bin,
+		Env:     env,
+		Args:    args,
+	}
+	return b
+}
+
 // Build is a basic BuildFunc
 var Build BuildFunc = func(target *Target) error {
 	for _, b := range target.FileBuilds {
@@ -104,6 +119,10 @@ var BuildRelease = func(release *Release) error {
 // Prepare is a basic PrepareFunc
 var Prepare PrepareFunc = func(release *Release) error {
 
+	// check if version is set
+	if release.Global.Version == "" {
+		return ErrorVersionNotSet
+	}
 	// check if release is for all platforms
 	if isAllPlatforms(release.Global.Platforms) {
 		release.Global.Platforms = DistList()
@@ -121,10 +140,10 @@ var Prepare PrepareFunc = func(release *Release) error {
 			t.DestDir = glob.DestDir
 		}
 		if t.FilePath == "" {
-			return ErrorEmptyFileName(t)
+			return ErrorBlankFileName
 		}
-		if t.NameFmt == "" {
-			t.NameFmt = glob.NameFmt
+		if t.Name == "" {
+			t.Name = glob.Name
 		}
 		if t.Env == nil {
 			t.Env = glob.Env
@@ -139,6 +158,7 @@ var Prepare PrepareFunc = func(release *Release) error {
 			t.Platforms = glob.Platforms
 		}
 
+		// make FileBuilds
 		for goos, goarchs := range t.Platforms {
 			for _, goarch := range goarchs {
 				build := MakeFileBuild(t, goos, goarch)
@@ -147,23 +167,12 @@ var Prepare PrepareFunc = func(release *Release) error {
 		}
 		release.Targets[i] = t
 	}
-	return nil
-}
 
-// MakeFileBuild creates FileBuild for Target
-func MakeFileBuild(t Target, goos, goarch string) FileBuild {
-	name := fmtName(t.NameFmt, t.Version, goos, goarch)
-	bin := path.Join(t.DestDir, name)
-	flags := append(t.Flags, "-o", bin)
-	env := buildEnv(t, goos, goarch)
-	args := append(append([]string{"build"}, flags...), t.FilePath)
-	b := FileBuild{
-		Name:    name,
-		BinPath: bin,
-		Env:     env,
-		Args:    args,
+	// check for duplicate names
+	if hasDuplicateNames(release) {
+		return ErrorDuplicateNames
 	}
-	return b
+	return nil
 }
 
 // DistList is a function that will gather all dists
@@ -180,11 +189,9 @@ func DistList() map[string][]string {
 	return m
 }
 
-type ErrorEmptyFileName Target
-
-func (err ErrorEmptyFileName) Error() string {
-	return fmt.Sprintf("target '%#v' has empty file name", err)
-}
+var ErrorBlankFileName = errors.New("target has blank file name")
+var ErrorVersionNotSet = errors.New("version is not set")
+var ErrorDuplicateNames = errors.New("release has targets with duplicate names")
 
 // FromFile creates Release from given path
 func FromFile(path string) *Release {
@@ -301,4 +308,27 @@ func logCmdString(cmd *exec.Cmd) string {
 
 func logBuild(t Target, cmd *exec.Cmd) {
 	log.Printf("%s - for target: %s", logCmdString(cmd), t)
+}
+
+func hasDuplicateNames(r *Release) bool {
+	var names []string
+	for _, t := range r.Targets {
+		names = append(names, t.Name)
+	}
+	if len(rmdups(names)) != len(names) {
+		return true
+	}
+	return false
+}
+
+func rmdups(s []string) []string {
+	var d = make(map[string]struct{})
+	for _, ss := range s {
+		d[ss] = struct{}{}
+	}
+	s = []string{}
+	for k := range d {
+		s = append(s, k)
+	}
+	return s
 }

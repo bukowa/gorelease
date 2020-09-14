@@ -1,7 +1,6 @@
 global:
   version: v0.1.0
   dir: bin
-  name: "gorelease%s-%s-%s"
   env:
     CGO_ENABLED: 0
     GO111MODULE: on
@@ -10,6 +9,14 @@ global:
 
 targets:
 
-  - file: main.go
+  - name: "gorelease"
+    file: main.go
     platforms:
       windows: ["386", "amd64", "arm"]
+
+releases:
+
+  - gcs:
+      bucket: $GORELEASE_BUCKET
+      then:
+        - gitlab:
