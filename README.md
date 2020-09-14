@@ -1,4 +1,6 @@
 # gorelease
+[![Docker Repository on Quay](https://quay.io/repository/bukow/gorelease/status "Docker Repository on Quay")](https://quay.io/repository/bukow/gorelease)
+
 idiomatic build and release single-binary go applications
 
 https://console.cloud.google.com/storage/browser/gorelease
