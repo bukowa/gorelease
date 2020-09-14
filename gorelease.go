@@ -15,9 +15,12 @@ import (
 	"strings"
 )
 
-type BuildFunc func(*Target) error
-type PrepareFunc func(*Release) error
-type ReleaseFunc func(*Release) error
+type (
+	BuildFunc        func(*Target) error
+	BuildReleaseFunc func(*Release) error
+	PrepareFunc      func(*Release) error
+	ReleaseFunc      func(*Release) error
+)
 
 type Release struct {
 	Global  Target   `yaml:"global"`
@@ -51,10 +54,22 @@ func (b *FileBuild) Command() *exec.Cmd {
 }
 
 // ForEach performs func f for each Target in Release
-func (r *Release) ForEach(f func(t *Target) error) error {
+func (r *Release) ForEachTarget(f func(t *Target) error) error {
 	for _, target := range r.Targets {
 		if err := f(&target); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (r *Release) ForEachTargetBuild(f func(t *Target, f *FileBuild) error) error {
+	for _, target := range r.Targets {
+		for _, build := range target.FileBuilds {
+			err := f(&target, &build)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -70,6 +85,15 @@ var Build BuildFunc = func(target *Target) error {
 			log.Print(string(out))
 		}
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var BuildRelease = func(release *Release) error {
+	for _, t := range release.Targets {
+		if err := Build(&t); err != nil {
 			return err
 		}
 	}
@@ -153,6 +177,12 @@ func DistList() map[string][]string {
 		m[s[0]] = append(m[s[0]], s[1])
 	}
 	return m
+}
+
+type ErrorEmptyFileName Target
+
+func (err ErrorEmptyFileName) Error() string {
+	return fmt.Sprintf("target '%#v' has empty file name", err)
 }
 
 // FromFile creates Release from given path

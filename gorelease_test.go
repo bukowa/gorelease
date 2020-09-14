@@ -100,10 +100,7 @@ func Test_handler_Prepare(t *testing.T) {
 
 func Test_handler_Build(t *testing.T) {
 	os.RemoveAll("bin")
-	r := getExampleRelease()
-	if err := Prepare(r); err != nil {
-		t.Error(err)
-	}
+	r := prepareExample()
 
 	for _, target := range r.Targets {
 		if err := Build(&target); err != nil {
@@ -201,6 +198,14 @@ func Test_fileBuild(t *testing.T) {
 	}
 }
 
+func prepareExample() *Release {
+	release := exampleRelease()
+	if err := Prepare(release); err != nil {
+		log.Fatal(err)
+	}
+	return release
+}
+
 func envMapInSlice(m map[string]string, env []string) bool {
 	for k, v := range m {
 		for _, e := range env {
@@ -212,7 +217,7 @@ func envMapInSlice(m map[string]string, env []string) bool {
 	return false
 }
 
-func getExampleRelease() *Release {
+func exampleRelease() *Release {
 	return FromFile(".gorelease.yaml")
 }
 

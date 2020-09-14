@@ -13,7 +13,7 @@ var (
 	Path    string
 )
 
-// GCSReleaser
+// GCSRelease
 var (
 	Bucket string
 )
@@ -37,10 +37,8 @@ var buildCmd = &cobra.Command{
 		}
 
 		// build
-		for _, t := range release.Targets {
-			if err := Build(&t); err != nil {
-				log.Fatal(err)
-			}
+		if err := BuildRelease(release); err != nil {
+			log.Fatal(err)
 		}
 	},
 }
@@ -56,7 +54,13 @@ var releaseGCS = &cobra.Command{
 	Short:   "release with google cloud storage",
 	Version: Version,
 	Run: func(cmd *cobra.Command, args []string) {
-
+		release := FromFile(Path)
+		if err := Prepare(release); err != nil {
+			log.Fatal(err)
+		}
+		if err := GCSRelease(Bucket)(release); err != nil {
+			log.Fatal(err)
+		}
 	},
 }
 
