@@ -23,6 +23,7 @@ type (
 )
 
 type Release struct {
+	// todo raw Target instead of Global
 	Global  Target   `yaml:"global"`
 	Targets []Target `yaml:"targets"`
 }
