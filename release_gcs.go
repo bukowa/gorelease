@@ -46,14 +46,6 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 				log.Fatal(errors.Wrapf(err, "while releasing %s", build.BinPath))
 			}
 
-			// handle writer close
-			var closeErr error
-			defer func() {
-				if closeErr != nil {
-					handle(err)
-				}
-			}()
-
 			// open release file
 			f, err := os.Open(build.BinPath)
 			if err != nil {
@@ -67,13 +59,12 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 			}
 
 			// close file
-			err = f.Close()
-			if closeErr != nil {
+			if err = f.Close(); err != nil {
 				handle(err)
 			}
 
 			// create new object
-			obj := bck.Object(f.Name())
+			obj := bck.Object(build.BinPath)
 
 			// todo check if exists
 			// write file to object
@@ -84,8 +75,10 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 			}
 
 			// close writer
-			closeErr = w.Close()
-
+			err = w.Close()
+			if err != nil {
+				handle(err)
+			}
 			_, err = obj.Attrs(ctx)
 			if err != nil {
 				handle(err)
