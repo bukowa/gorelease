@@ -1,6 +1,7 @@
 # gorelease
 idiomatic build and release single-binary go applications
 
+https://console.cloud.google.com/storage/browser/gorelease
 
 ```yaml
 version: v0.1.0
