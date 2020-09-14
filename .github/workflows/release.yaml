@@ -19,6 +19,6 @@ jobs:
           -e GO111MODULE=on \
           -e GOOGLE_APPLICATION_CREDENTIALS=/build/src/.creds.json \
           --volume=${PWD}:/build/src \
-          --workdir=/build/src/cmd \
+          --workdir=/build/src/gorelease \
           golang@sha256:5219b39d2d6bf723fb0221633a0ff831b0f89a94beb5a8003c7ff18003f48ead \
           /bin/sh -c "go run main.go build && go run main.go release gcs --bucket=gorelease"
