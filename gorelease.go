@@ -23,8 +23,7 @@ type (
 )
 
 type Release struct {
-	// todo raw Target instead of Global
-	Global  Target   `yaml:"global"`
+	Target  `yaml:",inline"`
 	Targets []Target `yaml:"targets"`
 }
 
@@ -46,6 +45,8 @@ type FileBuild struct {
 	BinPath string   // final path of built executable
 	Env     []string // env passed to go build
 	Args    []string // args passed to go build
+	GOOS    string
+	GOARCH  string
 }
 
 func (b *FileBuild) Command() *exec.Cmd {
@@ -87,6 +88,8 @@ func MakeFileBuild(t Target, goos, goarch string) FileBuild {
 		BinPath: bin,
 		Env:     env,
 		Args:    args,
+		GOOS:    goos,
+		GOARCH:  goarch,
 	}
 	return b
 }
@@ -95,7 +98,7 @@ func MakeFileBuild(t Target, goos, goarch string) FileBuild {
 var Build BuildFunc = func(target *Target) error {
 	for _, b := range target.FileBuilds {
 		cmd := b.Command()
-		log.Print(logCmdString(cmd))
+		log.Print(buildCmdLog(b, cmd))
 		out, _, err := runCmd(cmd)
 		if len(out) > 0 {
 			log.Print(string(out))
@@ -119,16 +122,21 @@ var BuildRelease = func(release *Release) error {
 // Prepare is a basic PrepareFunc
 var Prepare PrepareFunc = func(release *Release) error {
 
+	// if dir not set - write to bin
+	if release.DestDir == "" {
+		release.DestDir = "bin"
+	}
+
 	// check if version is set
-	if release.Global.Version == "" {
+	if release.Version == "" {
 		return ErrorVersionNotSet
 	}
 	// check if release is for all platforms
-	if isAllPlatforms(release.Global.Platforms) {
-		release.Global.Platforms = DistList()
+	if isAllPlatforms(release.Platforms) {
+		release.Platforms = DistList()
 	}
 	// shorten var name
-	glob := release.Global
+	glob := release
 
 	// iterate over each target
 	for i, t := range release.Targets {
@@ -298,16 +306,8 @@ func appendEnvKeyValue(env []string, k, v string) []string {
 	return append(env, fmt.Sprintf("%s=%s", k, v))
 }
 
-func fmtName(name, version, goos, goarch string) string {
-	return fmt.Sprintf(name, version, goos, goarch)
-}
-
-func logCmdString(cmd *exec.Cmd) string {
-	return fmt.Sprintf("executing '%s' in '%s'", cmd.String(), cmdWd(cmd))
-}
-
-func logBuild(t Target, cmd *exec.Cmd) {
-	log.Printf("%s - for target: %s", logCmdString(cmd), t)
+func buildCmdLog(f FileBuild, cmd *exec.Cmd) string {
+	return fmt.Sprintf("building: %s %s - executing '%s' in '%s'", f.GOOS, f.GOARCH, cmd.String(), cmdWd(cmd))
 }
 
 func hasDuplicateNames(r *Release) bool {

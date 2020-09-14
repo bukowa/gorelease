@@ -1,11 +1,9 @@
-global:
-  version: v0.1.0
-  dir: bin
-  env:
-    CGO_ENABLED: 0
-    GO111MODULE: on
-  flags:
-    - -ldflags="-X 'main.Version=v0.1.0'"
+version: v0.1.0
+env:
+  CGO_ENABLED: 0
+  GO111MODULE: on
+flags:
+  - -ldflags="-X 'main.Version=v0.1.0'"
 
 targets:
 
@@ -13,10 +11,4 @@ targets:
     file: main.go
     platforms:
       windows: ["386", "amd64", "arm"]
-
-releases:
-
-  - gcs:
-      bucket: $GORELEASE_BUCKET
-      then:
-        - gitlab:
+      linux: ["386", "amd64"]
