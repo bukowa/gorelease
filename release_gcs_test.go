@@ -18,7 +18,8 @@ func TestGCSReleaser(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = GCSRelease(Bucket)(r)
+	var res = make(GCSResult)
+	err = GCSRelease(Bucket, res)(r)
 	if err != nil {
 		t.Error(err)
 	}
