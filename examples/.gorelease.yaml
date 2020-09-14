@@ -1,10 +1,10 @@
 global:
+  name: "gorelease%s-%s-%s"
   version: v0.1.0
+  dir: bin
   flags:
     - -mod=vendor
     - -ldflags="-X 'main.Version=v0.1.0'"
-  dir: bin
-  name: "gorelease%s-%s-%s"
   env:
     CGO_ENABLED: 0
     GO111MODULE: on
@@ -22,7 +22,3 @@ targets:
     name: "main2%s-%s-%s"
     platforms:
       linux: ["amd64"]
-  # build for all platforms
-#  - file: main.go
-#    platforms:
-#      all:
