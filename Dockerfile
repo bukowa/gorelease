@@ -1,6 +1,7 @@
 # linux:arm64
+# golang:1.15.2-alpine3.12
 
-FROM golang@sha256:5219b39d2d6bf723fb0221633a0ff831b0f89a94beb5a8003c7ff18003f48ead as BUILDER
+FROM golang@sha256:fc801399d044a8e01f125eeb5aa3f160a0d12d6e03ba17a1d0b22ce50dfede81 as BUILDER
 WORKDIR "/app/build/src"
 
 ENV CGO_ENABLED=0
@@ -12,7 +13,8 @@ RUN go build -mod vendor \
     -ldflags="-X 'main.Version=v0.1.0'" \
     gorelease/main.go
 
-FROM alpine@sha256:a15790640a6690aa1730c38cf0a440e2aa44aaca9b0e8931a9f2b0d7cc90fd65
+
+FROM golang@sha256:fc801399d044a8e01f125eeb5aa3f160a0d12d6e03ba17a1d0b22ce50dfede81
 WORKDIR "/app"
 COPY --from=BUILDER /app/build/gorelease /usr/local/bin/gorelease
 RUN chmod +x /usr/local/bin/gorelease
