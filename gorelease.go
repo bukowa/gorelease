@@ -122,11 +122,6 @@ var BuildRelease = func(release *Release) error {
 // Prepare is a basic PrepareFunc
 var Prepare PrepareFunc = func(release *Release) error {
 
-	// if dir not set - write to bin
-	if release.DestDir == "" {
-		release.DestDir = "bin"
-	}
-
 	// check if version is set
 	if release.Version == "" {
 		return ErrorVersionNotSet
