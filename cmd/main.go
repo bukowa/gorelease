@@ -54,12 +54,16 @@ var releaseGCS = &cobra.Command{
 	Short:   "release with google cloud storage",
 	Version: Version,
 	Run: func(cmd *cobra.Command, args []string) {
+		var result = make(GCSResult)
 		release := FromFile(Path)
 		if err := Prepare(release); err != nil {
 			log.Fatal(err)
 		}
-		if err := GCSRelease(Bucket)(release); err != nil {
+		if err := GCSRelease(Bucket, result)(release); err != nil {
 			log.Fatal(err)
+		}
+		for k, v := range result {
+			log.Print(k, "", v)
 		}
 	},
 }

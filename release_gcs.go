@@ -12,8 +12,11 @@ import (
 	"os"
 )
 
+// filename: url
+type GCSResult map[string]string
+
 // GCSRelease is Google Cloud Storage ReleaseFunc
-func GCSRelease(bucket string) ReleaseFunc {
+func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 	// create default context
 	ctx := context.Background()
 
@@ -67,15 +70,22 @@ func GCSRelease(bucket string) ReleaseFunc {
 			}
 
 			// create new object
-			object := bck.Object(f.Name())
+			obj := bck.Object(f.Name())
 
 			// write file to object
-			writer := object.NewWriter(ctx)
-			if _, err = writer.Write(b); err != nil {
+			w := obj.NewWriter(ctx)
+			if _, err = w.Write(b); err != nil {
 				handle(err)
 			}
 
-			closeErr = writer.Close()
+			// close writer
+			closeErr = w.Close()
+
+			attrs, err := obj.Attrs(ctx)
+			if err != nil {
+				handle(err)
+			}
+			result[build.Name] = attrs.MediaLink
 			return nil
 		})
 	}
