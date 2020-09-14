@@ -72,6 +72,7 @@ func GCSRelease(bucket string, result GCSResult) ReleaseFunc {
 			// create new object
 			obj := bck.Object(f.Name())
 
+			// todo check if exists
 			// write file to object
 			w := obj.NewWriter(ctx)
 			if _, err = w.Write(b); err != nil {
