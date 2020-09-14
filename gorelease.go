@@ -62,7 +62,17 @@ func (r *Release) ForEach(f func(t *Target) error) error {
 
 // Build is a basic BuildFunc
 var Build BuildFunc = func(target *Target) error {
-
+	for _, b := range target.FileBuilds {
+		cmd := b.Command()
+		log.Print(logCmdString(cmd))
+		out, _, err := runCmd(cmd)
+		if len(out) > 0 {
+			log.Print(string(out))
+		}
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -106,7 +116,8 @@ var Prepare PrepareFunc = func(release *Release) error {
 
 		for goos, goarchs := range t.Platforms {
 			for _, goarch := range goarchs {
-				t.FileBuilds = append(t.FileBuilds, MakeFileBuild(t, goos, goarch))
+				build := MakeFileBuild(t, goos, goarch)
+				t.FileBuilds = append(t.FileBuilds, build)
 			}
 		}
 		release.Targets[i] = t

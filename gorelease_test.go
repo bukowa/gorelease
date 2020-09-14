@@ -13,6 +13,13 @@ import (
 	"testing"
 )
 
+func TestMain(m *testing.M) {
+	if err := os.Chdir("./examples"); err != nil {
+		log.Fatal(err)
+	}
+	os.Exit(m.Run())
+}
+
 func Test_goToolDistList(t *testing.T) {
 	dist := DistList()
 	if len(dist) < 1 {
@@ -92,8 +99,7 @@ func Test_handler_Prepare(t *testing.T) {
 }
 
 func Test_handler_Build(t *testing.T) {
-	os.RemoveAll("./examples/bin")
-
+	os.RemoveAll("bin")
 	r := getExampleRelease()
 	if err := Prepare(r); err != nil {
 		t.Error(err)
@@ -108,7 +114,7 @@ func Test_handler_Build(t *testing.T) {
 	// count number of built files
 	var wantFiles = totalFiles(r)
 	var gotFiles []os.FileInfo
-	err := filepath.Walk("./examples/bin", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk("bin", func(path string, info os.FileInfo, err error) error {
 		if info != nil && !info.IsDir() {
 			gotFiles = append(gotFiles, info)
 		}
@@ -120,19 +126,6 @@ func Test_handler_Build(t *testing.T) {
 	if len(gotFiles) != wantFiles {
 		t.Errorf("got: %v want: %v", len(gotFiles), wantFiles)
 	}
-}
-
-func getExampleRelease() *Release {
-	return FromFile("./examples/.gorelease.yaml")
-}
-
-func totalFiles(r *Release) (n int) {
-	for _, t := range r.Targets {
-		for _, a := range t.Platforms {
-			n += len(a)
-		}
-	}
-	return
 }
 
 func Test_fileBuild(t *testing.T) {
@@ -217,4 +210,17 @@ func envMapInSlice(m map[string]string, env []string) bool {
 		}
 	}
 	return false
+}
+
+func getExampleRelease() *Release {
+	return FromFile(".gorelease.yaml")
+}
+
+func totalFiles(r *Release) (n int) {
+	for _, t := range r.Targets {
+		for _, a := range t.Platforms {
+			n += len(a)
+		}
+	}
+	return
 }

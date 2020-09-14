@@ -1,15 +1,14 @@
 global:
-  # because we call it from go_release.test
-  workdir: examples
-  # first '%s' in name
   version: v0.1.0
   flags:
+    - -mod=vendor
     - -ldflags="-X 'main.Version=v0.1.0'"
-  # store releases here
   dir: bin
   name: "gorelease%s-%s-%s"
   env:
     CGO_ENABLED: 0
+    GO111MODULE: on
+
 
 targets:
   - file: main.go
