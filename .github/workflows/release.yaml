@@ -15,7 +15,7 @@ jobs:
         env:
           GCS_CREDS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
         run: |
-          cat ${GCS_CREDS} >> .creds.json &&
+          cat ${GCS_CREDS} >> .creds.json
           docker run --rm \
           -e CGO_ENABLED=0 \
           -e GO111MODULE=on \
